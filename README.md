@@ -1,62 +1,80 @@
-# Finance Tracker - AI-Powered Budget Manager
+# Finance Tracker
 
-## 🚀 Quick Deploy to GitHub Pages
+Personal expense + income tracker with AI-assisted categorization, CSV import from any bank, budgets, and a chat-style spending advisor. Built with React + Vite, deploys to GitHub Pages, AI calls go through a Cloudflare Worker that holds the Anthropic API key.
 
-### Step 1: Upload to GitHub
-1. Go to your GitHub repository: `finance-tracker`
-2. Delete the current `index.html` file  
-3. Click "Add file" → "Upload files"
-4. Drag ALL files from the extracted folder
-5. Commit changes
+Live URL: `https://djordje050182.github.io/finance-tracker/`
 
-### Step 2: Enable GitHub Pages with Actions
-1. Go to repository "Settings"
-2. Click "Pages" in left sidebar
-3. Under "Build and deployment":
-   - Source: Select "GitHub Actions"
-4. That's it!
+## Architecture
 
-### Step 3: Trigger Deploy
-1. Go to "Actions" tab
-2. Click "Deploy to GitHub Pages"  
-3. Click "Run workflow"
-4. Wait 2-3 minutes
-
-### Step 4: Get Your URL
-Your site will be live at:
 ```
-https://YOUR-USERNAME.github.io/finance-tracker/
+Browser (React app on GitHub Pages)
+      │
+      │  POST /  { model, max_tokens, messages }
+      ▼
+Cloudflare Worker (worker/)
+  - holds ANTHROPIC_API_KEY as a secret
+  - CORS-restricted to the Pages origin + localhost
+      │
+      ▼
+api.anthropic.com
 ```
 
-## ✅ What's Included
-- Full Finance Tracker with all features
-- AI categorization  
-- CSV import
-- Date filtering
-- Trends analysis
-- 14 expense categories
-- 9 income categories
-- Budget tracking
-- Analytics
+All user data (expenses, income, budgets, learned preferences) is stored locally in `localStorage`. Nothing is sent to any server except the AI requests.
 
-## 🔧 Local Development (Optional)
-If you want to run locally:
+## Local development
+
+Prereqs: Node 20+.
+
 ```bash
 npm install
+cp .env.example .env
+# Optional, for AI features: point VITE_AI_PROXY_URL at a running worker
+#   VITE_AI_PROXY_URL=http://127.0.0.1:8787
 npm run dev
 ```
 
-## 📝 Notes
-- All data is stored in browser localStorage
-- Each user has private data
-- AI features require Anthropic API (you're paying per use)
-- First deploy takes 2-3 minutes
-- Subsequent updates are automatic on push
+The app runs without `VITE_AI_PROXY_URL` set — AI features just become no-ops.
 
-## ⚠️ Important
-After uploading, GitHub Actions will automatically:
-1. Install dependencies
-2. Build the production version
-3. Deploy to GitHub Pages
+## Deploying the AI proxy (Cloudflare Worker)
 
-No manual building required!
+One-time setup:
+
+```bash
+cd worker
+npm install
+npx wrangler login                    # opens browser
+npx wrangler secret put ANTHROPIC_API_KEY
+# paste your key when prompted
+npm run deploy
+```
+
+Wrangler prints a URL like `https://finance-tracker-ai.<your-subdomain>.workers.dev`. That's your `VITE_AI_PROXY_URL`.
+
+If you change the deployed app's origin (custom domain, repo rename), update `ALLOWED_ORIGINS` in `worker/src/index.js` and redeploy.
+
+## Deploying the app (GitHub Pages)
+
+`.github/workflows/deploy.yml` builds and publishes on every push to `main`.
+
+Before the first deploy:
+
+1. Repo settings → Pages → Source: GitHub Actions.
+2. Repo settings → Secrets and variables → Actions → New repository secret:
+   - Name: `VITE_AI_PROXY_URL`
+   - Value: the workers.dev URL from above
+3. Push to `main`. The workflow runs `npm run build` with that env var baked in.
+
+If the repo name is anything other than `finance-tracker`, update `base` in `vite.config.js` to match.
+
+## Project layout
+
+```
+src/
+  components/        # one file per view + small UI bits
+  hooks/             # usePersistedState, useFinanceData
+  services/ai.js     # the only place that talks to the proxy
+  utils/             # csv, dates, smartCategorize, categorizeBatch, storage
+  constants/         # categories + merchant database
+  App.jsx            # orchestrator
+worker/              # Cloudflare Worker proxy for Anthropic
+```

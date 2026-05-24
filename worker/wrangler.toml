@@ -1,0 +1,6 @@
+name = "finance-tracker-ai"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Set the secret with:
+#   cd worker && npx wrangler secret put ANTHROPIC_API_KEY
